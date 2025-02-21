@@ -1,35 +1,46 @@
-name: Release Tag
+name: release and publish
 on:
   push:
     branches:
       - main
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
     - uses: actions/checkout@v2
     - name: Extract Version Name
-      run: echo "VERSION=v$(echo "${{ github.event.head_commit.message }}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')" >> "$GITHUB_ENV"
-      id: extract_version_name       
+      run: |
+        VERSION=$(echo "${{ github.event.head_commit.message }}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+        if [[ -n "$VERSION" ]]; then
+          echo "VERSION=v$VERSION" >> "$GITHUB_ENV"
+        else
+          echo "No version found in commit message. Skipping release."
+          exit 1
+        fi
+      id: extract_version_name
     - name: Create Release 
+      if: env.VERSION != ''
       uses: actions/create-release@v1
       env: 
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with: 
         tag_name: ${{ env.VERSION }} 
         release_name: ${{ env.VERSION }}
+
   publish-npm:
-    needs: build
+    needs: release
     runs-on: ubuntu-latest
+    if: needs.release.result == 'success'
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 22
           registry-url: 'https://registry.npmjs.org/'
-      - run: npm install
+      - run: npm ci
+      - run: npm run build
       - run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
