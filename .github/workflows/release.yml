@@ -8,26 +8,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    if: matches(github.event.head_commit.message, '.*[0-9]+\.[0-9]+\.[0-9]+.*')
     steps:
-    - uses: actions/checkout@v2
-    - name: Extract Version Name
-      run: |
-        VERSION=$(echo "${{ github.event.head_commit.message }}" | head -n 1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tr -d '\n')
-        if [[ -n "$VERSION" ]]; then
+      - uses: actions/checkout@v2
+      - name: Extract Version Name
+        run: |
+          VERSION=$(echo "${{ github.event.head_commit.message }}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tr -d '\n')
           echo "VERSION=v$VERSION" >> "$GITHUB_ENV"
-        else
-          echo "No valid version found in commit message."
-          exit 1
-        fi
-      id: extract_version_name
-    - name: Create Release 
-      if: env.VERSION != ''
-      uses: actions/create-release@v1
-      env: 
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with: 
-        tag_name: ${{ env.VERSION }} 
-        release_name: ${{ env.VERSION }}
+        id: extract_version_name
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: ${{ env.VERSION }}
 
   publish-npm:
     needs: release
